@@ -1,56 +1,66 @@
-# 🌍 Microplastics Earth — Interactive 3D Web Visualization
+# 🌍 Microplastics Earth — Интерактивная 3D-визуализация микропластика
 
-An interactive, responsive 3D web experience exploring microplastic pollution, ocean currents, and global environmental impact. Built with Three.js, Vanilla JavaScript, and Vite.
+Интерактивный веб-проект с 3D-графикой в реальном времени, исследующий проблему загрязнения мирового океана микропластиком, океанические течения и глобальное экологическое воздействие.
 
----
-
-## ✨ Features
-
-- **Realistic 3D Earth Visualization**: Multi-layered Three.js Earth model featuring day/night textures, clouds, specular maps, atmospheric glow, and smooth camera transitions.
-- **Interactive Layers & Heatmaps**: Toggle microplastic density hotspots across global ocean gyres.
-- **Timeline & Scenarios**: Explore pollution projections and timelines with synchronized camera and visual effects.
-- **Interactive Microscope & Pollution Calculator**: Deep-dive tools to analyze particle types and estimate annual personal impact.
-- **Multi-language Support (i18n)**: Russian and English localized interfaces.
-- **Responsive & Performant**: Mobile-ready UI with optimized asset loading and canvas render loop.
+Проект разработан на **Three.js**, **Vanilla JavaScript** (ES Modules) и сборщике **Vite**.
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Ключевой функционал
 
-- **Three.js** — 3D graphics, shaders, and rendering pipeline
-- **Vite** — Fast modern frontend build tool and dev server
-- **Vanilla JavaScript (ES Modules)** — Modular architecture without framework overhead
-- **HTML5 & Modern CSS3** — Glassmorphism UI, fluid layouts, and keyframe animations
+- **Фотореалистичная 3D-модель Земли**:
+  - Многослойная визуализация на Three.js: текстуры дня и ночи, облака с независимой анимацией вращения, карта высот/нормалей, спекулярные карты бликов воды и атмосферное свечение.
+  - Плавная кинематографическая камера с инерцией и поддержкой тач-жестов на мобильных устройствах.
+- **Интерактивные слои данных и тепловые карты**:
+  - Отображение зон концентрации микропластика в океанических круговоротах (мусорных пятнах).
+- **Хронология и сценарии (Timeline)**:
+  - Интерактивный таймлайн с прогнозами загрязнения и синхронным перемещением камеры к ключевым регионам.
+- **Интерактивный микроскоп и калькулятор следа**:
+  - Детальный разбор типов микропластика (первичный/вторичный, волокна, гранулы).
+  - Персональный калькулятор для оценки ежегодного попадания пластика в окружающую среду.
+- **Многоязычность (i18n)**:
+  - Полная поддержка русского и английского языков с мгновенным переключением без перезагрузки.
+- **Адаптивность и производительность**:
+  - Отзывчивый интерфейс с эффектом Glassmorphism.
+  - Оптимизированный цикл рендеринга (RequestAnimationFrame), экономичный расход памяти и высокая частота кадров (60 FPS).
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ Стек технологий
 
-### Prerequisites
+- **3D-графика / WebGL**: [Three.js](https://threejs.org/)
+- **Сборка и разработка**: [Vite](https://vitejs.dev/)
+- **Архитектура**: Vanilla JavaScript (модульная структура ES Modules)
+- **Стилизация**: CSS3 (Glassmorphism, Flexbox, CSS Grid, анимации keyframes)
+- **CI/CD & Деплой**: GitHub Actions + GitHub Pages
 
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [npm](https://www.npmjs.com/)
+---
 
-### Installation
+## 🚀 Локальный запуск и разработка
+
+### Предварительные требования
+- Установленный [Node.js](https://nodejs.org/) (версии 18 или новее)
+- Менеджер пакетов npm
+
+### Установка
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+# Клонировать репозиторий
+git clone https://github.com/myname-akamee/microplastics-earth.git
+cd microplastics-earth
 
-# Install dependencies
+# Установить зависимости
 npm install
 ```
 
-### Development
+### Запуск локального сервера разработки
 
 ```bash
 npm run dev
 ```
+После запуска откройте в браузере: `http://localhost:5173`
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### Production Build
+### Сборка для продакшена
 
 ```bash
 npm run build
@@ -59,10 +69,11 @@ npm run preview
 
 ---
 
-## 🌐 Deploy to GitHub Pages
+## 🌐 Публикация на GitHub Pages
 
-To deploy automatically to GitHub Pages using GitHub Actions:
+Проект настроен для автоматической сборки и публикации через GitHub Actions:
 
-1. In repository settings on GitHub, navigate to **Settings** > **Pages**.
-2. Under **Build and deployment**, select **Source: GitHub Actions**.
-3. Push to `main` — the workflow will automatically build and publish your site!
+1. Перейдите в **Settings** репозитория на GitHub → раздел **Pages**.
+2. В выпадающем меню **Source** выберите **GitHub Actions**.
+3. При каждом пуше в ветку `main` сайт автоматически собирается и публикуется по адресу:
+   **https://myname-akamee.github.io/microplastics-earth/**
