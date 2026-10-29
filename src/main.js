@@ -138,8 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentOpenMarker = null;
 
   const earth = new EarthEngine(earthCanvas, {
-    manifestUrl: '/assets/earth/manifest.json',
-    previewUrl: '/assets/earth/preview.webp',
     onProgress: (p) => {
       const pct = Math.round(p * 100);
       if (preloaderBar) preloaderBar.style.width = `${pct}%`;
@@ -158,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   registerModule('earth', earth);
+  window.__earth = earth;
 
   // Render hotspot pills
   function renderHotspotPills() {

@@ -1,22 +1,34 @@
-// earthEngine.js - Ultra-photorealistic 1080p 60/120 FPS 3D Earth Engine with Three.js WebGL & Canvas HUD
-// Physically-inspired planetary lighting: NASA Blue Marble 4K Day + Black Marble 4K Night,
+// earthEngine.js - Ultra-photorealistic 1080p+ 60 FPS 3D Earth Engine with Three.js WebGL & Canvas HUD
+// Physically-inspired planetary rendering: NASA Blue Marble 4K Day + Black Marble 4K Night,
 // topographic normal relief, ocean specular sunglint, floating cloud parallax layer,
 // golden twilight terminator, Rayleigh atmospheric scattering, inertia drag physics, and 3D geolocation markers.
 
 import * as THREE from 'three';
+
+const BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './';
+const cleanBase = BASE.endsWith('/') ? BASE : `${BASE}/`;
+
+export function getAssetUrl(relPath) {
+  if (!relPath) return '';
+  if (relPath.startsWith('http://') || relPath.startsWith('https://') || relPath.startsWith('data:')) {
+    return relPath;
+  }
+  const clean = relPath.startsWith('/') ? relPath.slice(1) : relPath;
+  return `${cleanBase}${clean}`;
+}
 
 export class EarthEngine {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.options = Object.assign({
-      manifestUrl: '/assets/earth/manifest.json',
-      previewUrl: '/assets/earth/preview.webp',
-      earthDayUrl: '/assets/earth_day_4096.jpg',
-      earthNightUrl: '/assets/earth_night_4096.jpg',
-      earthNormalUrl: '/assets/earth_normal_2048.jpg',
-      earthSpecularUrl: '/assets/earth_specular_2048.jpg',
-      earthCloudsUrl: '/assets/earth_clouds_1024.png',
+      manifestUrl: getAssetUrl('assets/earth/manifest.json'),
+      previewUrl: getAssetUrl('assets/earth/preview.webp'),
+      earthDayUrl: getAssetUrl('assets/earth_day_4096.jpg'),
+      earthNightUrl: getAssetUrl('assets/earth_night_4096.jpg'),
+      earthNormalUrl: getAssetUrl('assets/earth_normal_2048.jpg'),
+      earthSpecularUrl: getAssetUrl('assets/earth_specular_2048.jpg'),
+      earthCloudsUrl: getAssetUrl('assets/earth_clouds_1024.png'),
       inertia: 0.92,
       sensitivity: 0.22,
       dragSensitivity: 0.38,
@@ -25,6 +37,13 @@ export class EarthEngine {
       onReady: null,
       onMarkerSelect: null,
     }, options);
+
+    // Sanitize any options that might have been passed with leading slashes
+    for (const key of ['manifestUrl', 'previewUrl', 'earthDayUrl', 'earthNightUrl', 'earthNormalUrl', 'earthSpecularUrl', 'earthCloudsUrl']) {
+      if (this.options[key] && !this.options[key].startsWith(cleanBase) && !this.options[key].startsWith('http')) {
+        this.options[key] = getAssetUrl(this.options[key]);
+      }
+    }
 
     this.isLoaded = false;
     this.glReady = false;
@@ -42,7 +61,7 @@ export class EarthEngine {
     this.mouseNormY = 0;
 
     // Rotation state (in degrees 0..360)
-    // Positive currentAngle = Earth rotates eastward (to the right)
+    // Positive currentAngle = Earth rotates eastward
     this.currentAngle = 0;
     this.targetAngle = 0;
     this.velocity = 0;
@@ -53,7 +72,8 @@ export class EarthEngine {
     this.autoRotateEnabled = true;
 
     // Three.js 3D WebGL Pipeline
-    this.glSize = 1080;
+    this.glSize = 1440;
+    this.camExtent = 1.15; // Extent slightly larger than 1.0 to fit 1.026 atmosphere halo without clipping
     this.glCanvas = null;
     this.glRenderer = null;
     this.glScene = null;
@@ -62,8 +82,12 @@ export class EarthEngine {
     this.glSpinGroup = null;
     this.earthMesh = null;
     this.cloudMesh = null;
+    this.atmoMesh = null;
     this.cloudDrift = 0;
     this.markerAnchors = {};
+
+    // Fixed Sun Direction in scene coordinates (shining from upper-left space)
+    this.sunDirection = new THREE.Vector3(-1.7, 0.9, 1.4).normalize();
 
     // Starfield & ambient microplastic particles
     this.stars = [];
@@ -285,11 +309,27 @@ export class EarthEngine {
       this.centerY = Math.min(360, Math.max(280, this.height * 0.38));
       this.earthRadius = Math.min(195, this.width * 0.42);
     }
+
+    // High resolution buffer size for crisp 1080p+ rendering
+    const requiredResolution = Math.max(1440, Math.min(2048, Math.round(this.earthRadius * 2 * this.dpr * 1.35)));
+    if (this.glCanvas && this.glRenderer && this.glSize !== requiredResolution) {
+      this.glSize = requiredResolution;
+      this.glCanvas.width = this.glSize;
+      this.glCanvas.height = this.glSize;
+      this.glRenderer.setSize(this.glSize, this.glSize, false);
+    }
+  }
+
+  createPlaceholderTexture(r, g, b, a = 255) {
+    const data = new Uint8Array([r, g, b, a]);
+    const tex = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+    tex.needsUpdate = true;
+    return tex;
   }
 
   initWebGL() {
     try {
-      this.glSize = 1080;
+      this.glSize = Math.max(1440, Math.min(2048, Math.round(this.earthRadius * 2 * this.dpr * 1.35)));
       this.glCanvas = document.createElement('canvas');
       this.glCanvas.width = this.glSize;
       this.glCanvas.height = this.glSize;
@@ -307,11 +347,12 @@ export class EarthEngine {
 
       this.glScene = new THREE.Scene();
 
-      // Orthographic camera [-1, 1, 1, -1] fits sphere of radius 1.0 with 0 distortion
-      this.glCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+      // Orthographic camera [-camExtent, camExtent] fits sphere of radius 1.0 plus 1.026 atmosphere halo
+      const c = this.camExtent;
+      this.glCamera = new THREE.OrthographicCamera(-c, c, c, -c, 0.1, 10);
       this.glCamera.position.z = 2.5;
 
-      // Real Earth Axial Tilt (~12° aesthetic tilt)
+      // Realistic Earth Axial Tilt (~12° aesthetic tilt)
       this.glTiltGroup = new THREE.Group();
       this.glTiltGroup.rotation.z = THREE.MathUtils.degToRad(-12);
       this.glTiltGroup.rotation.x = THREE.MathUtils.degToRad(7);
@@ -321,49 +362,217 @@ export class EarthEngine {
       this.glSpinGroup = new THREE.Group();
       this.glTiltGroup.add(this.glSpinGroup);
 
-      // ─── PHYSICALLY-INSPIRED SPACE LIGHTING SETUP ───
-      // 1. Primary Sun Directional Light (crisp, brilliant sunlight from top-left space angle)
-      // Illuminates ~70% of the visible sphere with realistic spherical shading and a smooth dusk terminator
-      const sunLight = new THREE.DirectionalLight(0xfffdf5, 2.7);
-      sunLight.position.set(-2.6, 1.6, 2.4);
-      this.glScene.add(sunLight);
+      // ─── 1. ULTRA-REALISTIC 3D EARTH SHADER ───
+      // Seamlessly handles Day / Night transition, ocean specular sunglint,
+      // golden terminator sunset rim, and subtle normal topographic relief.
+      const earthVertexShader = `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vSunDir;
+        varying vec3 vViewDir;
 
-      // 2. Deep Space Ambient (deep navy, preserving deep contrast and letting night lights glow)
-      const ambientLight = new THREE.AmbientLight(0x0e172a, 0.32);
-      this.glScene.add(ambientLight);
+        uniform vec3 uSunPosition;
 
-      // 3. Subtle Rayleigh Atmospheric Light Diffusion (soft forward-fill preventing harsh black shadows)
-      const atmoFill = new THREE.DirectionalLight(0x38bdf8, 0.45);
-      atmoFill.position.set(-0.8, -1.2, 1.8);
-      this.glScene.add(atmoFill);
+        void main() {
+          vUv = uv;
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          vSunDir = normalize(uSunPosition - worldPos.xyz);
+          vViewDir = normalize(cameraPosition - worldPos.xyz);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `;
 
-      // 4. Signature Reference 1 Ethereal Violet Edge Light (grazes dark limb from behind)
-      const rimLight = new THREE.DirectionalLight(0x8b5cf6, 0.65);
-      rimLight.position.set(2.4, -1.4, -1.2);
-      this.glScene.add(rimLight);
+      const earthFragmentShader = `
+        uniform sampler2D uDayMap;
+        uniform sampler2D uNightMap;
+        uniform sampler2D uNormalMap;
+        uniform sampler2D uSpecularMap;
+        uniform vec3 uSunDirection;
+        uniform float uSunIntensity;
 
-      // ─── 3D EARTH GLOBE MESH ───
-      const earthGeo = new THREE.SphereGeometry(1.0, 64, 64);
-      const earthMat = new THREE.MeshPhongMaterial({
-        color: 0xffffff,
-        shininess: 35,
-        specular: new THREE.Color(0x38bdf8),
-        emissive: new THREE.Color(0xffd580),
-        emissiveIntensity: 0.55
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vSunDir;
+        varying vec3 vViewDir;
+
+        void main() {
+          vec3 dayColor = texture2D(uDayMap, vUv).rgb;
+          vec3 nightColor = texture2D(uNightMap, vUv).rgb;
+          vec3 normSample = texture2D(uNormalMap, vUv).rgb * 2.0 - 1.0;
+          float specVal = texture2D(uSpecularMap, vUv).r;
+
+          // Surface normal with subtle relief
+          vec3 N = normalize(vNormal + normSample * 0.12);
+          vec3 L = uSunDirection;
+          vec3 V = normalize(vec3(0.0, 0.0, 1.0)); // Orthographic camera facing Z
+
+          float sunDot = dot(N, L);
+
+          // Day / Night smooth blend factor across the terminator line
+          float dayFactor = smoothstep(-0.12, 0.16, sunDot);
+          float nightFactor = 1.0 - smoothstep(-0.06, 0.18, sunDot);
+
+          // Natural sunlight diffuse illumination on day side
+          float diffuse = max(0.0, sunDot) * 1.08 + 0.035;
+          vec3 dayLit = dayColor * (diffuse * uSunIntensity);
+
+          // Atmospheric sunset / sunrise rim at the dusk terminator
+          float terminator = smoothstep(-0.14, 0.0, sunDot) * (1.0 - smoothstep(0.0, 0.18, sunDot));
+          vec3 sunsetGlow = vec3(1.0, 0.52, 0.22) * (terminator * 0.40);
+
+          // Specular Sunglint: Brilliant solar reflection on ocean water
+          vec3 H = normalize(L + V);
+          float NdotH = max(0.0, dot(N, H));
+          float specular = pow(NdotH, 44.0) * specVal * max(0.0, sunDot) * 1.45;
+          vec3 specColor = vec3(1.0, 0.98, 0.94) * specular;
+
+          // Night city lights: warm amber glow ONLY on the dark side of Earth
+          vec3 nightLights = nightColor * (nightFactor * 1.7) * vec3(1.18, 1.05, 0.88);
+
+          // Composite surface color
+          vec3 surfaceColor = mix(nightLights, dayLit + sunsetGlow, dayFactor) + specColor;
+
+          // Natural gamma curve & vibrant tone mapping for 2D canvas transfer
+          surfaceColor = pow(max(vec3(0.0), surfaceColor), vec3(1.0 / 1.35));
+
+          gl_FragColor = vec4(surfaceColor, 1.0);
+        }
+      `;
+
+      // Safe placeholder textures (deep ocean blue) so the globe never renders as a white/yellow blob
+      const placeholderDay = this.createPlaceholderTexture(13, 40, 78);
+      const placeholderNight = this.createPlaceholderTexture(0, 0, 0);
+      const placeholderNormal = this.createPlaceholderTexture(128, 128, 255);
+      const placeholderSpec = this.createPlaceholderTexture(200, 200, 200);
+
+      const earthGeo = new THREE.SphereGeometry(1.0, 72, 72);
+      this.earthMaterial = new THREE.ShaderMaterial({
+        vertexShader: earthVertexShader,
+        fragmentShader: earthFragmentShader,
+        uniforms: {
+          uDayMap: { value: placeholderDay },
+          uNightMap: { value: placeholderNight },
+          uNormalMap: { value: placeholderNormal },
+          uSpecularMap: { value: placeholderSpec },
+          uSunPosition: { value: new THREE.Vector3(-1.7, 0.9, 1.4).multiplyScalar(10.0) },
+          uSunDirection: { value: this.sunDirection },
+          uSunIntensity: { value: 1.15 }
+        }
       });
-      this.earthMesh = new THREE.Mesh(earthGeo, earthMat);
+      this.earthMesh = new THREE.Mesh(earthGeo, this.earthMaterial);
       this.glSpinGroup.add(this.earthMesh);
 
-      // ─── 3D FLOATING CLOUD LAYER (Real 3D Parallax & Depth) ───
+      // ─── 2. FLOATING 3D CLOUD PARALLAX LAYER ───
+      const cloudVertexShader = `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+
+        void main() {
+          vUv = uv;
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `;
+
+      const cloudFragmentShader = `
+        uniform sampler2D uCloudMap;
+        uniform vec3 uSunDirection;
+        uniform float uCloudOpacity;
+
+        varying vec2 vUv;
+        varying vec3 vNormal;
+
+        void main() {
+          vec4 cSample = texture2D(uCloudMap, vUv);
+          float density = cSample.a > 0.0 ? cSample.a : (cSample.r * 0.9);
+
+          float sunDot = dot(vNormal, uSunDirection);
+          // Clouds are lit on the day side and catch golden light at twilight
+          float light = smoothstep(-0.10, 0.22, sunDot) * 1.04 + 0.03;
+
+          float terminator = smoothstep(-0.14, 0.0, sunDot) * (1.0 - smoothstep(0.0, 0.18, sunDot));
+          vec3 cloudTint = mix(vec3(0.98, 0.99, 1.0), vec3(1.0, 0.65, 0.42), terminator * 0.55);
+
+          vec3 cloudColor = cloudTint * light;
+          cloudColor = pow(max(vec3(0.0), cloudColor), vec3(1.0 / 1.35));
+          // Fade clouds out on the dark night side so they don't look like glowing gray fog
+          float alpha = density * uCloudOpacity * smoothstep(-0.20, 0.12, sunDot);
+
+          gl_FragColor = vec4(cloudColor, alpha);
+        }
+      `;
+
+      const placeholderClouds = this.createPlaceholderTexture(255, 255, 255, 0);
       const cloudGeo = new THREE.SphereGeometry(1.008, 64, 64);
-      const cloudMat = new THREE.MeshPhongMaterial({
+      this.cloudMaterial = new THREE.ShaderMaterial({
+        vertexShader: cloudVertexShader,
+        fragmentShader: cloudFragmentShader,
+        uniforms: {
+          uCloudMap: { value: placeholderClouds },
+          uSunDirection: { value: this.sunDirection },
+          uCloudOpacity: { value: 0.88 }
+        },
         transparent: true,
-        opacity: 0.42,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
+        blending: THREE.NormalBlending
       });
-      this.cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+      this.cloudMesh = new THREE.Mesh(cloudGeo, this.cloudMaterial);
       this.glSpinGroup.add(this.cloudMesh);
+
+      // ─── 3. REALISTIC RAYLEIGH ATMOSPHERIC HALO ───
+      // Pure physical limb scattering: thin sky-blue atmospheric glow on the illuminated horizon,
+      // softly fading into the blackness of deep space.
+      const atmoVertexShader = `
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `;
+
+      const atmoFragmentShader = `
+        uniform vec3 uSunDirection;
+        varying vec3 vNormal;
+
+        void main() {
+          // Fresnel edge rim: strongest at the silhouette limb of the sphere
+          float viewDot = dot(vNormal, vec3(0.0, 0.0, 1.0));
+          float fresnel = pow(1.0 - max(0.0, viewDot), 3.2);
+
+          // Atmosphere is illuminated primarily from the Sun angle
+          float sunDot = dot(vNormal, uSunDirection);
+          float sunFactor = smoothstep(-0.25, 0.35, sunDot);
+
+          // Rayleigh scattering: electric sky-blue on daylight limb, soft amber near terminator
+          vec3 atmoBlue = vec3(0.24, 0.65, 1.0);
+          vec3 atmoSunset = vec3(1.0, 0.55, 0.25);
+          float sunsetFactor = smoothstep(-0.22, -0.02, sunDot) * (1.0 - smoothstep(-0.02, 0.20, sunDot));
+
+          vec3 atmoColor = mix(atmoBlue, atmoSunset, sunsetFactor * 0.75);
+          float alpha = fresnel * (sunFactor * 0.92 + 0.05);
+
+          gl_FragColor = vec4(atmoColor, alpha);
+        }
+      `;
+
+      const atmoGeo = new THREE.SphereGeometry(1.026, 64, 64);
+      this.atmoMaterial = new THREE.ShaderMaterial({
+        vertexShader: atmoVertexShader,
+        fragmentShader: atmoFragmentShader,
+        uniforms: {
+          uSunDirection: { value: this.sunDirection }
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.FrontSide
+      });
+      this.atmoMesh = new THREE.Mesh(atmoGeo, this.atmoMaterial);
+      this.glTiltGroup.add(this.atmoMesh);
 
       // Build 3D Geolocation Anchors on the spinning globe
       this.rebuildMarkerAnchors();
@@ -401,35 +610,35 @@ export class EarthEngine {
 
   createStarfield() {
     this.stars = [];
-    const count = Math.min(300, Math.floor((this.width * this.height) / 4500));
+    const count = Math.min(260, Math.floor((this.width * this.height) / 5000));
     for (let i = 0; i < count; i++) {
       this.stars.push({
         x: Math.random() * this.width,
         y: Math.random() * this.height,
-        radius: Math.random() * 1.4 + 0.3,
-        alpha: Math.random() * 0.7 + 0.3,
-        baseAlpha: Math.random() * 0.7 + 0.3,
-        twinkleSpeed: Math.random() * 0.03 + 0.005,
+        radius: Math.random() * 1.3 + 0.3,
+        alpha: Math.random() * 0.7 + 0.25,
+        baseAlpha: Math.random() * 0.7 + 0.25,
+        twinkleSpeed: Math.random() * 0.025 + 0.005,
         twinklePhase: Math.random() * Math.PI * 2,
         color: Math.random() > 0.8 ? '#93c5fd' : (Math.random() > 0.6 ? '#e2e8f0' : '#ffffff'),
-        parallax: Math.random() * 0.3 + 0.1
+        parallax: Math.random() * 0.25 + 0.08
       });
     }
   }
 
   createMicroplasticParticles() {
     this.particles = [];
-    const count = 45;
+    const count = 38;
     for (let i = 0; i < count; i++) {
       this.particles.push({
         x: Math.random() * this.width,
         y: Math.random() * this.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        size: Math.random() * 2.5 + 0.8,
-        color: ['rgba(56, 189, 248, 0.7)', 'rgba(239, 68, 68, 0.6)', 'rgba(234, 179, 8, 0.6)', 'rgba(168, 85, 247, 0.6)', 'rgba(255, 255, 255, 0.8)'][Math.floor(Math.random() * 5)],
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        size: Math.random() * 2.2 + 0.8,
+        color: ['rgba(56, 189, 248, 0.65)', 'rgba(239, 68, 68, 0.55)', 'rgba(234, 179, 8, 0.55)', 'rgba(168, 85, 247, 0.55)', 'rgba(255, 255, 255, 0.7)'][Math.floor(Math.random() * 5)],
         pulse: Math.random() * Math.PI * 2,
-        pulseSpeed: Math.random() * 0.04 + 0.01
+        pulseSpeed: Math.random() * 0.035 + 0.01
       });
     }
   }
@@ -437,6 +646,16 @@ export class EarthEngine {
   async loadAssets() {
     try {
       const textureLoader = new THREE.TextureLoader();
+      const maxAniso = this.glRenderer ? this.glRenderer.capabilities.getMaxAnisotropy() : 4;
+
+      const configureTexture = (tex, srgb = true) => {
+        if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
+        tex.generateMipmaps = true;
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.anisotropy = Math.min(8, maxAniso);
+        tex.needsUpdate = true;
+      };
 
       const onTextureLoaded = () => {
         this.texturesLoaded++;
@@ -454,80 +673,87 @@ export class EarthEngine {
 
       // 1. Ultra-HD NASA Blue Marble 4K Day Map (4096x2048)
       textureLoader.load(
-        this.options.earthDayUrl || '/assets/earth_day_4096.jpg',
+        this.options.earthDayUrl,
         (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          tex.generateMipmaps = true;
-          tex.minFilter = THREE.LinearMipmapLinearFilter;
-          if (this.earthMesh) {
-            this.earthMesh.material.map = tex;
-            this.earthMesh.material.needsUpdate = true;
+          configureTexture(tex, true);
+          if (this.earthMaterial && this.earthMaterial.uniforms.uDayMap) {
+            this.earthMaterial.uniforms.uDayMap.value = tex;
           }
           onTextureLoaded();
         },
         undefined,
-        () => onTextureLoaded()
+        (err) => {
+          console.warn('Day texture failed to load:', this.options.earthDayUrl, err);
+          onTextureLoaded();
+        }
       );
 
       // 2. Ultra-HD NASA Black Marble 4K Night Lights (4096x2048)
       textureLoader.load(
-        this.options.earthNightUrl || '/assets/earth_night_4096.jpg',
+        this.options.earthNightUrl,
         (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          tex.generateMipmaps = true;
-          tex.minFilter = THREE.LinearMipmapLinearFilter;
-          if (this.earthMesh) {
-            this.earthMesh.material.emissiveMap = tex;
-            this.earthMesh.material.needsUpdate = true;
+          configureTexture(tex, true);
+          if (this.earthMaterial && this.earthMaterial.uniforms.uNightMap) {
+            this.earthMaterial.uniforms.uNightMap.value = tex;
           }
           onTextureLoaded();
         },
         undefined,
-        () => onTextureLoaded()
+        (err) => {
+          console.warn('Night texture failed to load:', this.options.earthNightUrl, err);
+          onTextureLoaded();
+        }
       );
 
-      // 3. Normal 2048x1024 bump relief map
+      // 3. Normal 2048x1024 topographic relief map
       textureLoader.load(
         this.options.earthNormalUrl,
         (tex) => {
-          if (this.earthMesh) {
-            this.earthMesh.material.normalMap = tex;
-            this.earthMesh.material.normalScale = new THREE.Vector2(0.85, 0.85);
-            this.earthMesh.material.needsUpdate = true;
+          configureTexture(tex, false);
+          if (this.earthMaterial && this.earthMaterial.uniforms.uNormalMap) {
+            this.earthMaterial.uniforms.uNormalMap.value = tex;
           }
           onTextureLoaded();
         },
         undefined,
-        () => onTextureLoaded()
+        (err) => {
+          console.warn('Normal texture failed to load:', this.options.earthNormalUrl, err);
+          onTextureLoaded();
+        }
       );
 
       // 4. Specular 2048x1024 ocean reflectance map
       textureLoader.load(
         this.options.earthSpecularUrl,
         (tex) => {
-          if (this.earthMesh) {
-            this.earthMesh.material.specularMap = tex;
-            this.earthMesh.material.needsUpdate = true;
+          configureTexture(tex, false);
+          if (this.earthMaterial && this.earthMaterial.uniforms.uSpecularMap) {
+            this.earthMaterial.uniforms.uSpecularMap.value = tex;
           }
           onTextureLoaded();
         },
         undefined,
-        () => onTextureLoaded()
+        (err) => {
+          console.warn('Specular texture failed to load:', this.options.earthSpecularUrl, err);
+          onTextureLoaded();
+        }
       );
 
       // 5. Clouds 1024x512 atmospheric layer
       textureLoader.load(
         this.options.earthCloudsUrl,
         (tex) => {
-          tex.generateMipmaps = true;
-          if (this.cloudMesh) {
-            this.cloudMesh.material.map = tex;
-            this.cloudMesh.material.needsUpdate = true;
+          configureTexture(tex, true);
+          if (this.cloudMaterial && this.cloudMaterial.uniforms.uCloudMap) {
+            this.cloudMaterial.uniforms.uCloudMap.value = tex;
           }
           onTextureLoaded();
         },
         undefined,
-        () => onTextureLoaded()
+        (err) => {
+          console.warn('Clouds texture failed to load:', this.options.earthCloudsUrl, err);
+          onTextureLoaded();
+        }
       );
     } catch (e) {
       console.error('Error loading 3D planetary assets:', e);
@@ -739,42 +965,28 @@ export class EarthEngine {
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // 1. Deep cosmic studio background
+    // 1. Deep cosmic space background (subtle navy-to-black vignette)
     const bgGrad = ctx.createRadialGradient(
-      this.centerX, this.centerY, this.earthRadius * 0.4,
+      this.centerX, this.centerY, this.earthRadius * 0.35,
       this.centerX, this.centerY, Math.max(w, h) * 0.85
     );
-    bgGrad.addColorStop(0, '#040614');
+    bgGrad.addColorStop(0, '#040716');
     bgGrad.addColorStop(0.5, '#02030a');
     bgGrad.addColorStop(1, '#000000');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
-    // Dynamic studio light beam tracking cursor
-    const pointerShiftX = (this.mouseNormX || 0) * this.earthRadius * 0.18;
-    const pointerShiftY = (this.mouseNormY || 0) * this.earthRadius * 0.18;
-    const studioBeam = ctx.createRadialGradient(
-      w * 0.15 + pointerShiftX, h * 0.1 + pointerShiftY, 0,
-      w * 0.15 + pointerShiftX, h * 0.1 + pointerShiftY, Math.max(w, h) * 0.75
-    );
-    studioBeam.addColorStop(0, 'rgba(129, 140, 248, 0.08)');
-    studioBeam.addColorStop(0.35, 'rgba(56, 189, 248, 0.03)');
-    studioBeam.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = studioBeam;
-    ctx.fillRect(0, 0, w, h);
-
-    // Ethereal Reference 1 Deep Violet & Purple Celestial Aura (Behind Earth)
+    // Soft celestial nebula depth behind the planet
     const nebulaGrad = ctx.createRadialGradient(
-      this.centerX, this.centerY, this.earthRadius * 0.3,
-      this.centerX, this.centerY, this.earthRadius * 1.95
+      this.centerX, this.centerY, this.earthRadius * 0.2,
+      this.centerX, this.centerY, this.earthRadius * 1.6
     );
-    nebulaGrad.addColorStop(0, 'rgba(139, 92, 246, 0.28)');
-    nebulaGrad.addColorStop(0.35, 'rgba(99, 102, 241, 0.16)');
-    nebulaGrad.addColorStop(0.65, 'rgba(168, 85, 247, 0.07)');
+    nebulaGrad.addColorStop(0, 'rgba(30, 58, 138, 0.16)');
+    nebulaGrad.addColorStop(0.5, 'rgba(88, 28, 135, 0.08)');
     nebulaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = nebulaGrad;
     ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, this.earthRadius * 1.95, 0, Math.PI * 2);
+    ctx.arc(this.centerX, this.centerY, this.earthRadius * 1.6, 0, Math.PI * 2);
     ctx.fill();
 
     // 2. Render Starfield
@@ -782,7 +994,7 @@ export class EarthEngine {
     for (let i = 0; i < this.stars.length; i++) {
       const star = this.stars[i];
       star.twinklePhase += star.twinkleSpeed;
-      const alpha = star.baseAlpha + Math.sin(star.twinklePhase) * 0.25;
+      const alpha = star.baseAlpha + Math.sin(star.twinklePhase) * 0.22;
 
       let sx = (star.x - parallaxOffsetX * star.parallax + w * 2) % w;
       let sy = star.y;
@@ -795,83 +1007,13 @@ export class EarthEngine {
     }
     ctx.globalAlpha = 1;
 
-    // 3. Signature Reference 1 Luminous Multi-stop Corona & Halo Ring
-    const coronaRadius = this.earthRadius * 1.48;
-    const coronaGrad = ctx.createRadialGradient(
-      this.centerX, this.centerY, this.earthRadius * 0.98,
-      this.centerX, this.centerY, coronaRadius
-    );
-    coronaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
-    coronaGrad.addColorStop(0.03, 'rgba(56, 189, 248, 0.75)');
-    coronaGrad.addColorStop(0.16, 'rgba(129, 140, 248, 0.55)');
-    coronaGrad.addColorStop(0.38, 'rgba(168, 85, 247, 0.34)');
-    coronaGrad.addColorStop(0.70, 'rgba(88, 28, 135, 0.12)');
-    coronaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = coronaGrad;
-    ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, coronaRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Neon Halo Ring Stroke (from Reference 1)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, this.earthRadius * 1.012, 0, Math.PI * 2);
-    ctx.lineWidth = 2.8;
-    ctx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
-    ctx.shadowColor = '#c084fc';
-    ctx.shadowBlur = 24;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, this.earthRadius * 1.002, 0, Math.PI * 2);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
-    ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 14;
-    ctx.stroke();
-    ctx.restore();
-
-    // Top-left Sun-facing atmospheric crescent glow tracking pointer
-    const sunX = this.centerX - this.earthRadius * 0.38 + pointerShiftX;
-    const sunY = this.centerY - this.earthRadius * 0.38 + pointerShiftY;
-    const crescentGrad = ctx.createRadialGradient(
-      sunX, sunY, this.earthRadius * 0.6,
-      sunX, sunY, this.earthRadius * 1.45
-    );
-    crescentGrad.addColorStop(0, 'rgba(192, 132, 252, 0.22)');
-    crescentGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.08)');
-    crescentGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = crescentGrad;
-    ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, this.earthRadius * 1.18, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 4. Render 1080p 3D Earth Globe (circularly clipped with zero border bleed)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(this.centerX, this.centerY, this.earthRadius, 0, Math.PI * 2);
-    ctx.clip();
-
+    // 3. Render 1080p+ 3D Photorealistic WebGL Earth Globe with Rayleigh Atmosphere
     this.renderEarthGlobe(ctx);
 
-    // 4B. Ethereal Atmospheric Limb Glow (at outermost rim only)
-    const limbGrad = ctx.createRadialGradient(
-      this.centerX, this.centerY, this.earthRadius * 0.88,
-      this.centerX, this.centerY, this.earthRadius
-    );
-    limbGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-    limbGrad.addColorStop(0.70, 'rgba(56, 189, 248, 0.12)');
-    limbGrad.addColorStop(0.95, 'rgba(186, 230, 253, 0.32)');
-    limbGrad.addColorStop(1, 'rgba(255, 255, 255, 0.55)');
-    ctx.fillStyle = limbGrad;
-    ctx.fill();
-
-    ctx.restore();
-
-    // 5. Floating Microplastic Particulate Cloud
+    // 4. Floating Microplastic Particulate Cloud
     this.renderMicroplastics(ctx);
 
-    // 6. 3D Geolocation Hotspot Markers
+    // 5. 3D Geolocation Hotspot Markers
     this.renderMarkers(ctx);
 
     ctx.restore();
@@ -886,24 +1028,25 @@ export class EarthEngine {
       // Cloud layer independent drift for real 3D parallax depth
       if (this.cloudMesh) {
         this.cloudMesh.rotation.y = this.cloudDrift;
-        this.cloudDrift += 0.00028;
+        this.cloudDrift += 0.00024;
       }
 
       this.glScene.updateMatrixWorld(true);
 
-      // Render 3D WebGL Earth at crisp 1080p resolution
+      // Render 3D WebGL Earth at crisp 1080p+ resolution
       this.glRenderer.render(this.glScene, this.glCamera);
 
-      // Draw onto 2D canvas
-      const drawSize = this.earthRadius * 2;
-      const destX = Math.round(this.centerX - this.earthRadius);
-      const destY = Math.round(this.centerY - this.earthRadius);
+      // Draw onto 2D canvas with camExtent scaling so the atmosphere halo blurs naturally into space
+      const drawSize = this.earthRadius * 2 * this.camExtent;
+      const destX = Math.round(this.centerX - this.earthRadius * this.camExtent);
+      const destY = Math.round(this.centerY - this.earthRadius * this.camExtent);
 
       ctx.drawImage(this.glCanvas, destX, destY, drawSize, drawSize);
       return;
     }
 
-    ctx.fillStyle = '#060a16';
+    // High quality 2D fallback if WebGL is unavailable
+    ctx.fillStyle = '#0a1d37';
     ctx.beginPath();
     ctx.arc(this.centerX, this.centerY, this.earthRadius, 0, Math.PI * 2);
     ctx.fill();
