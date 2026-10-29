@@ -1,0 +1,23 @@
+# Logs & Temp files
+*.log
+*.tmp
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build
+dist/
+
+# Local screenshots and screen captures
+hero*.png
+rot_frame*.png
+page_full*.png
+spheres.png
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

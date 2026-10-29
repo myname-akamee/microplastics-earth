@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Микропластик — Невидимая угроза Земли</title>
+  <meta name="description" content="Интерактивное 3D-исследование глобального загрязнения микропластиком. Вращайте Землю курсором, исследуйте загрязнённые зоны, узнайте свой пластиковый след.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%230284c7'/><circle cx='38' cy='35' r='18' fill='%2338bdf8'/></svg>">
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div id="preloader">
+    <div class="preloader-inner">
+      <div class="preloader-globe">🌍</div>
+      <div class="preloader-bar-wrap">
+        <div class="preloader-bar" id="preloader-bar"></div>
+      </div>
+      <div class="preloader-text" id="preloader-text">Загрузка планеты…</div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <header class="navbar" id="navbar">
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">🌍</div>
+      <span>MICROPLASTICA</span>
+    </a>
+
+    <nav class="nav-center">
+      <ul class="nav-links">
+        <li><a href="#spheres" class="nav-link" data-i18n="nav.cycle">Круговорот</a></li>
+        <li><a href="#microscope" class="nav-link" data-i18n="nav.microscope">Микроскоп</a></li>
+        <li><a href="#human" class="nav-link" data-i18n="nav.organism">Организм</a></li>
+        <li><a href="#calculator" class="nav-link" data-i18n="nav.calculator">Калькулятор</a></li>
+        <li><a href="#timeline" class="nav-link" data-i18n="nav.timeline">2050</a></li>
+        <li><a href="#solutions" class="nav-link" data-i18n="nav.solutions">Решения</a></li>
+        <li><a href="#showcase" class="nav-link" data-i18n="nav.uikit">UI Kit</a></li>
+        <li><a href="#quiz" class="nav-link" data-i18n="nav.quiz">Квиз</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <button id="btn-lang" class="btn-pill btn-pill--lang" title="Switch language / Сменить язык">
+        <span id="lang-icon">🇷🇺</span>
+        <span id="lang-text">RU</span>
+      </button>
+      <button id="btn-sound" class="btn-pill" title="Включить эмбиент космоса и океана">
+        <span id="sound-icon">🔈</span>
+        <span id="sound-text" data-i18n="nav.sound">Звук</span>
+      </button>
+      <a href="#calculator" class="btn-pill btn-pill--accent" data-i18n="nav.footprint">Мой след</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Menu -->
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="#spheres" class="mobile-link" data-i18n="nav.cycle">Круговорот</a>
+    <a href="#microscope" class="mobile-link" data-i18n="nav.microscope">Микроскоп</a>
+    <a href="#human" class="mobile-link" data-i18n="nav.organism">Организм</a>
+    <a href="#calculator" class="mobile-link" data-i18n="nav.calculator">Калькулятор</a>
+    <a href="#timeline" class="mobile-link" data-i18n="nav.timeline">Прогноз 2050</a>
+    <a href="#solutions" class="mobile-link" data-i18n="nav.solutions">Решения</a>
+    <a href="#showcase" class="mobile-link" data-i18n="nav.uikit">UI Kit Референс</a>
+    <a href="#quiz" class="mobile-link" data-i18n="nav.quiz">Квиз</a>
+  </div>
+
+  <!-- ──────────── HERO SECTION (Reference 1 & Apple Product Presentation) ──────────── -->
+  <section id="hero" class="hero-section">
+
+    <!-- Full-screen / Centered Earth Canvas -->
+    <div class="hero-canvas-wrap">
+      <canvas id="earth-canvas"></canvas>
+    </div>
+
+    <!-- Centered Hero Overlay Architecture -->
+    <div class="hero-centerpiece">
+      <!-- Top ethereal kicker badge matching reference -->
+      <div class="hero-kicker-wrap">
+        <div class="hero-kicker">
+          <span class="kicker-star">✦</span>
+          <span data-i18n="hero.badge">Глобальный мониторинг экосистем • Исследование 2026</span>
+          <span class="kicker-star">✦</span>
+        </div>
+      </div>
+
+      <!-- Main colossal Apple-style title (matching "deep sleep" reference style) -->
+      <h1 class="hero-main-title">
+        <span class="title-core" data-i18n="hero.title2">microplastica</span>
+      </h1>
+
+      <!-- Ethereal subtitle matching Reference 1 -->
+      <p class="hero-lead-text" data-i18n="hero.subtitle">
+        Место для глубокого понимания: без лишнего шума и спешки.
+        Как микроскопические синтетические полимеры стали частью каждого океана, облака и дыхания человека.
+      </p>
+
+      <!-- Neo-Tactile Interactive Floating Dock -->
+      <div class="neo-hero-dock" id="hero-dock" title="Панель тактильного управления планетой">
+        <button class="neo-dock-btn" id="dock-btn-rotate" title="Пауза / Вращение Земли">
+          <span id="dock-rotate-icon">⏸</span>
+        </button>
+        <button class="neo-dock-btn" id="dock-btn-reset" title="Сбросить ориентацию планеты">
+          <span>🔄</span>
+        </button>
+        <button class="neo-dock-btn" id="dock-btn-random" title="Случайная точка загрязнения">
+          <span>🎲</span>
+        </button>
+        <button class="neo-dock-btn" id="dock-btn-sound" title="Фоновый звук глубин океана">
+          <span id="dock-sound-icon">🔈</span>
+        </button>
+        <button class="neo-dock-btn active-ring" id="dock-btn-glow" title="Режим неонового свечения">
+          <span>✨</span>
+        </button>
+      </div>
+
+      <!-- 3 Floating Frosted Glass Cards directly overlapping lower curve of the orb (Reference 1 Layout) -->
+      <div class="hero-ref-cards">
+        <div class="hero-ref-card" id="card-ocean">
+          <div class="ref-card-glow-pill" data-i18n="stat.ocean.val">11 млн+ тонн</div>
+          <h3 class="ref-card-title" data-i18n="stat.ocean.val_title">Океанический след</h3>
+          <p class="ref-card-desc" data-i18n="stat.ocean.val_desc">
+            Ежегодно смывается в реки и моря. Концентрация пластика в субтропических вихрях уже превышает массу планктона в 6 раз.
+          </p>
+          <div class="ref-card-tag">🌊 5 субтропических круговоротов</div>
+        </div>
+
+        <div class="hero-ref-card hero-ref-card--featured" id="card-human">
+          <div class="ref-card-glow-pill ref-card-glow-pill--violet" data-i18n="stat.human.val">5 грамм / нед</div>
+          <h3 class="ref-card-title" data-i18n="stat.human.val_title">Внутри каждого из нас</h3>
+          <p class="ref-card-desc" data-i18n="stat.human.val_desc">
+            Эквивалент банковской карты попадает в организм человека каждую неделю через бутилированную воду, морепродукты и синтетический воздух.
+          </p>
+          <div class="ref-card-tag">🧬 80% доноров крови</div>
+        </div>
+
+        <div class="hero-ref-card" id="card-abyss">
+          <div class="ref-card-glow-pill ref-card-glow-pill--cyan" data-i18n="stat.mariana.val">10 994 метра</div>
+          <h3 class="ref-card-title" data-i18n="stat.mariana.val_title">Предел бездны</h3>
+          <p class="ref-card-desc" data-i18n="stat.mariana.val_desc">
+            Синтетика оседает на самом дне Земли. 100% изученных глубоководных ракообразных содержат волокна микрополимеров в тканях.
+          </p>
+          <div class="ref-card-tag">⚓ 2 200 частиц / л осадка</div>
+        </div>
+      </div>
+
+      <!-- Hotspots selection pills bar -->
+      <div class="hero-hotspots-wrap">
+        <p class="hotspots-label">📍 Ключевые точки мониторинга <small>(клик — наведение Земли)</small></p>
+        <div class="hotspots-pills" id="hotspots-pills"></div>
+      </div>
+    </div>
+
+    <!-- Marker info drawer (slides in from right) -->
+    <aside class="marker-drawer" id="marker-drawer">
+      <button class="drawer-close" id="drawer-close" aria-label="Закрыть">✕</button>
+      <div id="drawer-content"></div>
+    </aside>
+  </section>
+
+  <!-- ──────────── SPHERES SECTION (Matching Reference 1 Bottom Cards) ──────────── -->
+  <section id="spheres" class="page-section">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="spheres.tag">Планетарный цикл</span>
+        <h2 class="section-title" data-i18n="spheres.title">Круговорот пластика в геосферах</h2>
+        <p class="section-subtitle">
+          Пластик не исчезает со свалок. Он фрагментируется на триллионы микрочастиц,
+          встраиваясь в глобальные круговороты воды, воздуха и биомассы.
+        </p>
+      </header>
+
+      <div class="cards-grid ref-cards-grid">
+        <div class="ref-glow-card reveal-delay-1">
+          <div class="ref-glow-head">
+            <span class="ref-glow-star">✦</span>
+            <span class="ref-glow-title">Атмосфера</span>
+          </div>
+          <div class="ref-card-body">
+            <h3 class="card-title" data-i18n="spheres.card1.title">«Пластиковый дождь»</h3>
+            <p class="card-text" data-i18n="spheres.card1.desc">
+              Микроволокна поднимаются с океанической пеной и дорожной пылью в тропосферу.
+              Они переносятся ветром на тысячи километров и выпадают даже в заповедных альпийских зонах.
+            </p>
+            <div class="ref-card-stat-pill" data-i18n="spheres.card1.stat">До 1 000 частиц/м² осадков ежедневно</div>
+          </div>
+        </div>
+
+        <div class="ref-glow-card reveal-delay-2">
+          <div class="ref-glow-head">
+            <span class="ref-glow-star">✦</span>
+            <span class="ref-glow-title">Гидросфера</span>
+          </div>
+          <div class="ref-card-body">
+            <h3 class="card-title" data-i18n="spheres.card2.title">Океанические вихри</h3>
+            <p class="card-text" data-i18n="spheres.card2.desc">
+              Пластиковый мусор затягивается в 5 субтропических круговоротов. На солнце он
+              распадается на крошку, которая оседает в донных желобах.
+            </p>
+            <div class="ref-card-stat-pill" data-i18n="spheres.card2.stat">14 млн тонн микропластика на дне морей</div>
+          </div>
+        </div>
+
+        <div class="ref-glow-card reveal-delay-3">
+          <div class="ref-glow-head">
+            <span class="ref-glow-star">✦</span>
+            <span class="ref-glow-title">Литосфера</span>
+          </div>
+          <div class="ref-card-body">
+            <h3 class="card-title" data-i18n="spheres.card3.title">Сельхозпочвы</h3>
+            <p class="card-text" data-i18n="spheres.card3.desc">
+              Полимерные мульчирующие плёнки и осадки сточных вод насыщают почвы синтетикой.
+              Частицы угнетают дождевых червей и снижают урожайность.
+            </p>
+            <div class="ref-card-stat-pill" data-i18n="spheres.card3.stat">В почвах в 4–23 раза больше пластика, чем в воде</div>
+          </div>
+        </div>
+
+        <div class="ref-glow-card reveal-delay-4">
+          <div class="ref-glow-head">
+            <span class="ref-glow-star">✦</span>
+            <span class="ref-glow-title">Биосфера</span>
+          </div>
+          <div class="ref-card-body">
+            <h3 class="card-title" data-i18n="spheres.card4.title">Трофические цепи</h3>
+            <p class="card-text" data-i18n="spheres.card4.desc">
+              Зоопланктон поглощает частицы, принимая их за пищу. По пищевой цепочке полимеры
+              концентрируются в хищных рыбах и поступают на стол человека.
+            </p>
+            <div class="ref-card-stat-pill" data-i18n="spheres.card4.stat">100% морских черепах содержат пластик в ЖКТ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── MICROSCOPE SECTION ──────────── -->
+  <section id="microscope" class="page-section page-section--alt">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="micro.tag">Интерактивный микроскоп</span>
+        <h2 class="section-title" data-i18n="micro.title">Масштабы деградации: от 1 см до 100 нм</h2>
+        <p class="section-subtitle">
+          Перемещайте ползунок увеличения, чтобы увидеть, как бытовой пластик дробится
+          до размеров клеток и молекул, проникая сквозь биологические мембраны.
+        </p>
+      </header>
+
+      <div class="glass-card micro-layout reveal">
+        <!-- Left: canvas viewer -->
+        <div class="micro-viewer">
+          <canvas id="microscope-canvas"></canvas>
+          <div class="micro-controls">
+            <div class="micro-scale-row">
+              <span class="micro-scale-edge">10 мм</span>
+              <span class="micro-scale-label" id="microscope-scale-label">10 мм • Крышка от бутылки</span>
+              <span class="micro-scale-edge">100 нм</span>
+            </div>
+            <input type="range" id="microscope-slider" class="range-input" min="0" max="5" step="0.05" value="0">
+            <div class="micro-steps">
+              <button class="step-btn active" data-step="0">10 мм</button>
+              <button class="step-btn" data-step="1">5 мм</button>
+              <button class="step-btn" data-step="2">1 мм</button>
+              <button class="step-btn" data-step="3">50 мкм</button>
+              <button class="step-btn" data-step="4">10 мкм</button>
+              <button class="step-btn" data-step="5">100 нм</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: dynamic info -->
+        <div class="micro-info" id="microscope-info"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── HUMAN BODY SECTION ──────────── -->
+  <section id="human" class="page-section">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="human.tag">Медицинские факты</span>
+        <h2 class="section-title" data-i18n="human.title">Микропластик внутри нас</h2>
+        <p class="section-subtitle">
+          В 2022–2024 годах учёные совершили череду пугающих открытий:
+          синтетические полимеры найдены в жизненно важных органах человека.
+        </p>
+      </header>
+
+      <div class="organs-grid">
+        <div class="organ-card glass-card reveal-delay-1">
+          <div class="organ-header">
+            <span class="organ-icon">🩸</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card1.title">Кровеносная система</h3>
+              <span class="organ-source" data-i18n="human.card1.src">Амстердамский свободный университет, 2022</span>
+            </div>
+          </div>
+          <div class="organ-stat" data-i18n="human.card1.stat">80% доноров крови</div>
+          <p class="organ-desc" data-i18n="human.card1.desc">
+            Микрочастицы ПЭТ, полиэтилена и полистирола циркулируют по артериям и венам.
+            Они прилипают к стенкам сосудов и могут вызывать микротромбы.
+          </p>
+        </div>
+
+        <div class="organ-card glass-card reveal-delay-2">
+          <div class="organ-header">
+            <span class="organ-icon">🫁</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card2.title">Лёгочная ткань</h3>
+              <span class="organ-source" data-i18n="human.card2.src">Университет Халла, Великобритания</span>
+            </div>
+          </div>
+          <div class="organ-stat" data-i18n="human.card2.stat">39 частиц / образец</div>
+          <p class="organ-desc" data-i18n="human.card2.desc">
+            В глубоких отделах лёгких найдены волокна от синтетической одежды, ковров и мебели.
+            Они не разрушаются макрофагами, вызывая хронические воспаления.
+          </p>
+        </div>
+
+        <div class="organ-card glass-card reveal-delay-3">
+          <div class="organ-header">
+            <span class="organ-icon">🫀</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card3.title">Бляшки сонных артерий</h3>
+              <span class="organ-source" data-i18n="human.card3.src">New England Journal of Medicine, 2024</span>
+            </div>
+          </div>
+          <div class="organ-stat organ-stat--red" data-i18n="human.card3.stat">Риск инфаркта ×4.5</div>
+          <p class="organ-desc" data-i18n="human.card3.desc">
+            У пациентов с микропластиком в атеросклеротических бляшках риск инфаркта,
+            инсульта или смерти за 34 месяца в 4.5 раза выше.
+          </p>
+        </div>
+
+        <div class="organ-card glass-card reveal-delay-1">
+          <div class="organ-header">
+            <span class="organ-icon">🤰</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card4.title">Плацента и плод</h3>
+              <span class="organ-source" data-i18n="human.card4.src">Университет Рим Сапиенца</span>
+            </div>
+          </div>
+          <div class="organ-stat" data-i18n="human.card4.stat">100% образцов плацент</div>
+          <p class="organ-desc" data-i18n="human.card4.desc">
+            Нанопластик легко преодолевает плацентарный барьер. Частицы найдены с обеих сторон —
+            и материнской, и эмбриональной.
+          </p>
+        </div>
+
+        <div class="organ-card glass-card reveal-delay-2">
+          <div class="organ-header">
+            <span class="organ-icon">🧠</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card5.title">Клетки мозга</h3>
+              <span class="organ-source" data-i18n="human.card5.src">Медицинский университет Вены, 2023</span>
+            </div>
+          </div>
+          <div class="organ-stat organ-stat--red" data-i18n="human.card5.stat">Прорыв за 2 часа</div>
+          <p class="organ-desc" data-i18n="human.card5.desc">
+            Нанопластик преодолевает гематоэнцефалический барьер уже через 2 часа после
+            проглатывания, вызывая нейровоспаления.
+          </p>
+        </div>
+
+        <div class="organ-card glass-card reveal-delay-3">
+          <div class="organ-header">
+            <span class="organ-icon">🧪</span>
+            <div>
+              <h3 class="organ-title" data-i18n="human.card6.title">«Троянский конь» химии</h3>
+              <span class="organ-source" data-i18n="human.card6.src">Эндокринные разрушители (EDCs)</span>
+            </div>
+          </div>
+          <div class="organ-stat" data-i18n="human.card6.stat">16 000+ химикатов</div>
+          <p class="organ-desc" data-i18n="human.card6.desc">
+            Пластик содержит фталаты, бисфенол А и антипирены, имитирующие гормоны человека
+            и снижающие репродуктивную функцию и иммунитет.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── CALCULATOR SECTION ──────────── -->
+  <section id="calculator" class="page-section page-section--alt">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="calc.tag">Интерактивный расчёт</span>
+        <h2 class="section-title" data-i18n="calc.title">Калькулятор персонального пластикового следа</h2>
+        <p class="section-subtitle">
+          Оцените свои привычки и узнайте, сколько граммов синтетических полимеров вы
+          потребляете и выбрасываете в природу за год.
+        </p>
+      </header>
+
+      <div class="calc-layout reveal">
+        <!-- Inputs -->
+        <div class="glass-card calc-inputs">
+          <h3 class="calc-inputs-title" data-i18n="calc.inputs.title">Ваши ежедневные привычки:</h3>
+
+          <div class="calc-group">
+            <div class="calc-row">
+              <label class="calc-label" for="calc-water" data-i18n="calc.water.label">Вода в пластиковых бутылках (0.5–1.5 л)</label>
+              <span class="calc-badge"><span id="calc-val-water">4</span> <span data-i18n="calc.water.unit">бут./нед.</span></span>
+            </div>
+            <input type="range" id="calc-water" class="range-input" min="0" max="21" value="4">
+            <p class="calc-hint" data-i18n="calc.water.hint">В бутилированной воде в 22 раза больше частиц, чем в фильтрованной.</p>
+          </div>
+
+          <div class="calc-group">
+            <div class="calc-row">
+              <label class="calc-label" for="calc-cups" data-i18n="calc.cups.label">Кофе/чай в одноразовых стаканчиках</label>
+              <span class="calc-badge"><span id="calc-val-cups">3</span> <span data-i18n="calc.cups.unit">шт./нед.</span></span>
+            </div>
+            <input type="range" id="calc-cups" class="range-input" min="0" max="14" value="3">
+            <p class="calc-hint" data-i18n="calc.cups.hint">Полиэтиленовый слой стаканчика выделяет до 25 000 частиц в кипяток.</p>
+          </div>
+
+          <div class="calc-group">
+            <div class="calc-row">
+              <label class="calc-label" for="calc-wash" data-i18n="calc.wash.label">Стирка синтетики (полиэстер, флис)</label>
+              <span class="calc-badge"><span id="calc-val-wash">3</span> <span data-i18n="calc.wash.unit">стирок/нед.</span></span>
+            </div>
+            <input type="range" id="calc-wash" class="range-input" min="0" max="10" value="3">
+            <p class="calc-hint" data-i18n="calc.wash.hint">Одна загрузка выпускает до 700 000 микроволокон в канализацию.</p>
+          </div>
+
+          <div class="calc-group">
+            <div class="calc-row">
+              <label class="calc-label" for="calc-car" data-i18n="calc.car.label">Поездки на автомобиле</label>
+              <span class="calc-badge"><span id="calc-val-car">120</span> <span data-i18n="calc.car.unit">км/нед.</span></span>
+            </div>
+            <input type="range" id="calc-car" class="range-input" min="0" max="600" step="10" value="120">
+            <p class="calc-hint" data-i18n="calc.car.hint">Истирание шин — главный источник микрочастиц в городском воздухе.</p>
+          </div>
+
+          <div class="calc-group">
+            <div class="calc-row">
+              <label class="calc-label" for="calc-seafood" data-i18n="calc.seafood.label">Блюда из мидий, креветок, рыбы</label>
+              <span class="calc-badge"><span id="calc-val-seafood">1</span> <span data-i18n="calc.seafood.unit">блюд/нед.</span></span>
+            </div>
+            <input type="range" id="calc-seafood" class="range-input" min="0" max="7" value="1">
+            <p class="calc-hint" data-i18n="calc.seafood.hint">Моллюски фильтруют воду, накапливая тысячи частиц пластика.</p>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="glass-card calc-results">
+          <span id="calc-level-badge" class="level-badge level-medium">Средний след</span>
+
+          <div class="calc-hero-stat">
+            <div class="calc-hero-num" id="calc-intake-grams">240 г</div>
+            <div class="calc-hero-meta" data-i18n="calc.result.intake">микропластика попадает в ваш организм за год</div>
+          </div>
+
+          <div class="calc-mini-grid">
+            <div class="calc-mini-card">
+              <div class="calc-mini-label" data-i18n="calc.result.particles">Частиц в год</div>
+              <div class="calc-mini-val" id="calc-intake-particles">220 тыс.</div>
+            </div>
+            <div class="calc-mini-card">
+              <div class="calc-mini-label" data-i18n="calc.result.cards">Банковских карт (5 г)</div>
+              <div class="calc-mini-val calc-mini-val--amber" id="calc-card-equiv">48 шт.</div>
+            </div>
+            <div class="calc-mini-card calc-mini-card--wide">
+              <div class="calc-mini-label" data-i18n="calc.result.emission">Выброс в природу за год</div>
+              <div class="calc-mini-val calc-mini-val--rose" id="calc-emission-kg">3.4 кг</div>
+            </div>
+          </div>
+
+          <div class="calc-tips-head" data-i18n="calc.tips.head">Персональные рекомендации:</div>
+          <div id="calc-tips-list"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── TIMELINE SECTION ──────────── -->
+  <section id="timeline" class="page-section">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="timeline.tag">Моделирование будущего</span>
+        <h2 class="section-title" data-i18n="timeline.title">Хроника полимерного кризиса: 1950–2050</h2>
+        <p class="section-subtitle">
+          Перемещайте временную шкалу, чтобы проследить рост производства
+          пластика и его накопления в океанах.
+        </p>
+      </header>
+
+      <div class="glass-card timeline-card reveal">
+        <div class="timeline-top">
+          <div>
+            <span class="timeline-year-label" data-i18n="timeline.year">Выбранный год:</span>
+            <span class="timeline-year" id="timeline-year">2026</span>
+          </div>
+          <label class="toggle-label">
+            <input type="checkbox" id="timeline-scenario" class="toggle-check">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text" data-i18n="timeline.scenario">Сценарий Глобального договора ООН</span>
+          </label>
+        </div>
+
+        <input type="range" id="timeline-slider" class="range-input" min="1950" max="2050" step="1" value="2026">
+
+        <canvas id="timeline-chart"></canvas>
+
+        <div id="timeline-stats"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── SOLUTIONS SECTION ──────────── -->
+  <section id="solutions" class="page-section page-section--green">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag section-tag--green">Наука и инновации</span>
+        <h2 class="section-title" data-i18n="solutions.title">Как человечество борется с угрозой</h2>
+        <p class="section-subtitle">
+          Биотехнологии и законодательные запреты открывают путь к исцелению биосферы.
+        </p>
+      </header>
+
+      <div class="solutions-grid">
+        <div class="glass-card solution-card reveal-delay-1">
+          <span class="solution-badge" data-i18n="solutions.c1.badge">Биотехнологии</span>
+          <h3 class="solution-title" data-i18n="solutions.c1.title">Ферменты бактерии Ideonella sakaiensis</h3>
+          <p class="solution-desc" data-i18n="solutions.c1.desc">
+            В 2016 году японские учёные открыли бактерию, расщепляющую ПЭТ-пластик ферментами
+            ПЭТаза и МХЭТаза. Модифицированные версии разлагают пластик за часы вместо веков.
+          </p>
+        </div>
+
+        <div class="glass-card solution-card reveal-delay-2">
+          <span class="solution-badge" data-i18n="solutions.c2.badge">Материаловедение</span>
+          <h3 class="solution-title" data-i18n="solutions.c2.title">Биополимеры из водорослей и мицелия</h3>
+          <p class="solution-desc" data-i18n="solutions.c2.desc">
+            Полигидроксиалканоаты (PHA) синтезируются бактериями при ферментации. Они на 100%
+            разлагаются в морской воде за несколько месяцев без токсичного остатка.
+          </p>
+        </div>
+
+        <div class="glass-card solution-card reveal-delay-3">
+          <span class="solution-badge" data-i18n="solutions.c3.badge">Бытовые технологии</span>
+          <h3 class="solution-title" data-i18n="solutions.c3.title">Микроволоконные фильтры для стирки</h3>
+          <p class="solution-desc" data-i18n="solutions.c3.desc">
+            Франция стала первой страной, обязавшей производителей оснащать все новые стиральные
+            машины встроенными фильтрами с 2025 года. Они улавливают до 90% волокон.
+          </p>
+        </div>
+
+        <div class="glass-card solution-card reveal-delay-4">
+          <span class="solution-badge" data-i18n="solutions.c4.badge">Международное право</span>
+          <h3 class="solution-title" data-i18n="solutions.c4.title">Глобальный договор ООН о пластике</h3>
+          <p class="solution-desc" data-i18n="solutions.c4.desc">
+            Юридически обязывающий договор 175 государств, ограничивающий первичное производство
+            пластика и финансирующий очистку океанов от существующего загрязнения.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── NEO-TACTILE UI KIT SHOWCASE ──────────── -->
+  <section id="showcase" class="page-section page-section--alt">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="showcase.tag">Референс дизайна</span>
+        <h2 class="section-title" data-i18n="showcase.title">Neo-Tactile Design System</h2>
+        <p class="section-subtitle" data-i18n="showcase.subtitle">
+          Тактильный неоморфизм, матовое стекло, студийное освещение и интерактивная физика элементов интерфейса.
+        </p>
+      </header>
+
+      <div class="glass-card showcase-grid reveal">
+        <!-- Left: Phone / Slab from the reference -->
+        <div class="showcase-phone-col">
+          <!-- Header -->
+          <div class="showcase-header">
+            <div class="showcase-avatar-title">
+              <span class="showcase-avatar-icon">👤</span>
+              <span class="showcase-title-text">UI Kit</span>
+            </div>
+            <div class="showcase-burger-wrap">
+              <button class="showcase-icon-btn" id="showcase-burger" aria-label="Menu" title="Tactile Menu">☰</button>
+              <div class="showcase-dropdown-menu" id="showcase-menu-dropdown">
+                <button class="showcase-menu-item" data-action="lighting">💡 Студийный свет</button>
+                <button class="showcase-menu-item" data-action="inspect">🔍 Инспектор токенов</button>
+                <button class="showcase-menu-item" data-action="reset">↺ Сбросить параметры</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pill buttons: Defart vs active -->
+          <div class="showcase-pills-row">
+            <button class="btn-pill" id="demo-pill-default">Defart</button>
+            <button class="btn-pill btn-pill--accent" id="demo-pill-active">active</button>
+          </div>
+
+          <!-- Calded Dropdown Box -->
+          <div class="showcase-recessed-box" id="calded-box">
+            <div class="calded-header">
+              <span>Calded</span>
+              <span class="calded-chevron">⌵</span>
+            </div>
+            <div class="showcase-sub-select" id="calded-trigger" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="calded-selected-label">Select / led</span>
+              <span class="calded-sub-chevron">⌵</span>
+            </div>
+            <div class="calded-dropdown-list" id="calded-menu" role="listbox">
+              <div class="calded-option" data-color="#0284c7" data-name="Cobalt Neon (#0284c7)">
+                <span class="opt-dot" style="background:#0284c7; box-shadow: 0 0 8px #0284c7;"></span>
+                <span>Cobalt Neon (Active)</span>
+              </div>
+              <div class="calded-option" data-color="#10b981" data-name="Emerald Bio (#10b981)">
+                <span class="opt-dot" style="background:#10b981; box-shadow: 0 0 8px #10b981;"></span>
+                <span>Emerald Bio (Eco)</span>
+              </div>
+              <div class="calded-option" data-color="#f59e0b" data-name="Amber Alert (#f59e0b)">
+                <span class="opt-dot" style="background:#f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+                <span>Amber Alert (Warning)</span>
+              </div>
+              <div class="calded-option" data-color="#8b5cf6" data-name="Cyber Violet (#8b5cf6)">
+                <span class="opt-dot" style="background:#8b5cf6; box-shadow: 0 0 8px #8b5cf6;"></span>
+                <span>Cyber Violet (Plasma)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Segmented Dock from reference -->
+          <div class="showcase-dock-center">
+            <div class="neo-hero-dock" id="showcase-dock">
+              <button class="neo-dock-btn" title="Линейный режим" data-idx="0"><span>＝</span></button>
+              <button class="neo-dock-btn" title="Минимальный режим" data-idx="1"><span>·</span></button>
+              <button class="neo-dock-btn" title="Сетка компонентов" data-idx="2"><span>≡</span></button>
+              <button class="neo-dock-btn" title="Добавить элемент" data-idx="3"><span>＋</span></button>
+              <button class="neo-dock-btn active-ring" title="Неоновый ореол" data-idx="4"><span>✦</span></button>
+            </div>
+          </div>
+
+          <!-- Switches & Sliders -->
+          <div class="showcase-controls-group">
+            <div class="showcase-switch-row">
+              <div class="showcase-switch-meta">
+                <span class="switch-title">ON.</span>
+                <span class="switch-val-badge" id="showcase-val-on">65%</span>
+              </div>
+              <label class="toggle-label">
+                <input type="checkbox" id="showcase-switch-on" class="toggle-check" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <input type="range" id="showcase-slider-on" class="range-input" min="0" max="100" value="65">
+
+            <div class="showcase-switch-row" style="margin-top: 14px;">
+              <div class="showcase-switch-meta">
+                <span class="switch-title">OFF.</span>
+                <span class="switch-val-badge" id="showcase-val-off">25%</span>
+              </div>
+              <label class="toggle-label">
+                <input type="checkbox" id="showcase-switch-off" class="toggle-check">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <input type="range" id="showcase-slider-off" class="range-input" min="0" max="100" value="25" style="opacity: 0.5;" disabled>
+          </div>
+
+          <!-- Modal Accordion Card from reference -->
+          <div class="showcase-modal-card">
+            <div class="modal-card-header">
+              <div class="modal-card-title">
+                <span>👩</span> <span>Modal</span>
+              </div>
+              <button class="modal-dots-btn" id="modal-dots-btn" title="Modal Info">•••</button>
+            </div>
+            <div class="modal-accordions-wrap">
+              <!-- Item 1: Reatee -->
+              <div class="modal-acc-item">
+                <button class="modal-acc-btn" data-target="panel-reatee">
+                  <span class="acc-btn-title">🪪 Reatee</span>
+                  <span class="acc-chevron">⌵</span>
+                </button>
+                <div class="modal-acc-panel" id="panel-reatee">
+                  <div class="acc-panel-content" id="reatee-desc">
+                    <strong>Верифицированный эко-профиль:</strong> Знак нулевого использования пластика. Сэкономлено 320 кг CO₂e.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Item 2: Llogzen -->
+              <div class="modal-acc-item">
+                <button class="modal-acc-btn" data-target="panel-llogzen">
+                  <span class="acc-btn-title">🛡️ Llogzen</span>
+                  <span class="acc-chevron">⌵</span>
+                </button>
+                <div class="modal-acc-panel" id="panel-llogzen">
+                  <div class="acc-panel-content" id="llogzen-desc">
+                    <strong>Клеточный щит:</strong> Мембрана нанофильтрации 100 нм активна. Эффективность барьера 99.8%.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Item 3: Lacliten -->
+              <div class="modal-acc-item">
+                <button class="modal-acc-btn" data-target="panel-lacliten">
+                  <span class="acc-btn-title">☁️ Lacliten</span>
+                  <span class="acc-chevron">⌵</span>
+                </button>
+                <div class="modal-acc-panel" id="panel-lacliten">
+                  <div class="acc-panel-content" id="lacliten-desc">
+                    <strong>Облачная телеметрия:</strong> Подключено к океаническим датчикам очистки. Задержка: 14 мс.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Design System Spec Column (Directly matching right column of reference) -->
+        <div class="showcase-spec-column">
+          <!-- Spec 1: Cobalt Active Specular -->
+          <div class="showcase-spec-item" id="token-blue" title="Кликните для копирования CSS-токена">
+            <div class="showcase-swatch-blue"></div>
+            <div>
+              <div class="showcase-token-title">0.4 1 14 1.5px</div>
+              <div class="showcase-token-meta">Cobalt Active Accent / Specular Elevation</div>
+            </div>
+            <div class="showcase-token-action">Копировать CSS</div>
+          </div>
+
+          <!-- Spec 2: Ambient Occlusion -->
+          <div class="showcase-spec-item" id="token-slate" title="Кликните для копирования CSS-токена">
+            <div class="showcase-swatch-slate"></div>
+            <div>
+              <div class="showcase-token-title">12. 18 18 1.5px</div>
+              <div class="showcase-token-meta">Deep Ambient Occlusion & Diffuse Lighting</div>
+            </div>
+            <div class="showcase-token-action">Копировать CSS</div>
+          </div>
+
+          <!-- Spec 3: Tactile Clay Disc with Hover & Bounce -->
+          <div class="showcase-spec-item" id="token-elevate-row">
+            <button class="showcase-elevate-disc" id="token-elevate-btn" title="Нажмите для проверки физики прыжка">
+              ⬡
+            </button>
+            <div>
+              <div class="showcase-token-title" id="showcase-hover-title">Hover state elevates element</div>
+              <div class="showcase-token-meta" id="showcase-hover-meta">Тактильная физика подъема с размытием тени</div>
+            </div>
+          </div>
+
+          <!-- Spec 4: Cyclic Progress Indicator -->
+          <div class="showcase-spec-item" id="token-loading-row">
+            <button class="neo-loading-spinner" id="token-spinner" title="Кликните для паузы / завершения"></button>
+            <div>
+              <div class="showcase-token-title" id="showcase-loading-title">Loading state shows animation</div>
+              <div class="showcase-token-meta" id="showcase-loading-meta">Сегментированный неоновый циклический индикатор</div>
+            </div>
+          </div>
+
+          <!-- Spec 5: Interactive Replenner -->
+          <div class="showcase-spec-item">
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-pill btn-pill--replenner" id="btn-replenner" title="Запустить цикл фильтрации">
+                <span style="color: var(--blue-primary); font-weight: 900;">＋</span> Replenner ⌵
+              </button>
+            </div>
+            <div class="showcase-token-meta">Автоматическая очистка полимерного фильтра</div>
+          </div>
+
+          <!-- Spec 6: Live Notification Capsule -->
+          <div class="showcase-spec-item">
+            <button class="neo-hero-dock btn-test-notif" id="btn-test-notification" style="padding: 6px 16px; cursor: pointer; border: 1px solid rgba(56,189,248,0.25);" title="Вызвать тактильный тост">
+              <span style="color: var(--cyan-neon);">🧊</span>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #fff;">Notification</span>
+              <span style="font-size: 0.8rem; color: #94a3b8;">❯</span>
+            </button>
+            <div class="showcase-token-meta">Вызов матового всплывающего уведомления</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────── QUIZ SECTION ──────────── -->
+  <section id="quiz" class="page-section">
+    <div class="section-inner">
+      <header class="section-header reveal">
+        <span class="section-tag" data-i18n="quiz.tag">Проверь себя</span>
+        <h2 class="section-title" data-i18n="quiz.title">Тест: Что вы знаете о микропластике?</h2>
+        <p class="section-subtitle">
+          Ответьте на 5 ключевых научных вопросов и узнайте неожиданные факты.
+        </p>
+      </header>
+      <div id="quiz-container"></div>
+    </div>
+  </section>
+
+  <!-- ──────────── FOOTER ──────────── -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo" data-i18n="footer.brand">🌍 MICROPLASTICA // ECO RESEARCH</div>
+        <p class="footer-tagline" data-i18n="footer.tagline">
+          Интерактивный образовательный проект о сохранении океанов и здоровья планеты.
+        </p>
+      </div>
+      <div class="footer-sources">
+        <div class="footer-sources-title" data-i18n="footer.sources.label">Научные источники:</div>
+        <span data-i18n="footer.sources">UNEP (ООН), Nature Communications, Science Advances, New England Journal of Medicine, WWF & University of Newcastle, The Ocean Cleanup.</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating Neo-Tactile Notification Toast -->
+  <div class="neo-toast" id="neo-toast" aria-live="polite">
+    <div class="neo-toast-icon">
+      <span class="neo-toast-symbol">✦</span>
+    </div>
+    <div class="neo-toast-content">
+      <div class="neo-toast-title" id="toast-title">MICROPLASTICA</div>
+      <div class="neo-toast-desc" id="toast-desc">Интерактивный 3D-мониторинг активен</div>
+    </div>
+    <div class="neo-toast-chevron">❯</div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
